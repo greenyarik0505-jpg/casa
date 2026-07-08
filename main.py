@@ -1,322 +1,309 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox, ttk
 
-from storage import load_products, load_sales, save_products
-from barcode_tools import generate_barcode_number, create_barcode_image
-import products as prod_logic
+from barcode_tools import create_barcode_image, generate_barcode_number
+import products as product_logic
+from sales import add_to_cart, calculate_total, finish_sale, remove_from_cart
+from storage import load_products, load_sales, save_products, save_sales
 
 
 class MiniPOSApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Mini POS System")
-        self.root.geometry("850x500")
+        self.root.geometry("1000x640")
+        self.root.minsize(900, 560)
 
         self.products = load_products()
         self.sales_history = load_sales()
+        self.cart = []
 
-        # Налаштування стилів інтерфейсу
         self._setup_styles()
 
         self.notebook = ttk.Notebook(root)
-        self.notebook.pack(fill="both", expand=True, padx=15, pady=15)
+        self.notebook.pack(fill="both", expand=True, padx=12, pady=12)
 
-        # Будуємо вкладку Товари
         self._build_products_tab()
+        self._build_cashier_tab()
+        self._build_history_tab()
 
-        self._add_placeholder_tab(
-            "Каса",
-            "Каса ще не працює.\nДодавання в чек, знижки і завершення продажу не реалізовані.",
-        )
-        self._add_placeholder_tab(
-            "Історія продажів",
-            "Історія продажів ще не підключена до інтерфейсу.",
-        )
+        self._refresh_products_table()
+        self._refresh_cart_table()
+        self._refresh_history_table()
 
     def _setup_styles(self) -> None:
-        self.style = ttk.Style()
-        self.style.theme_use("clam")
+        style = ttk.Style()
+        style.theme_use("clam")
+        self.root.configure(bg="#f6f7fb")
 
-        # Палітра кольорів
-        bg_color = "#f9fafb"        # Світло-сірий фон
-        card_color = "#ffffff"      # Білий для карток
-        primary_color = "#4f46e5"   # Індиго
-        primary_active = "#4338ca"  # Темніший індиго
-        text_color = "#1f2937"      # Темно-сірий текст
-        border_color = "#e5e7eb"    # Світла рамка
-        danger_color = "#ef4444"    # Червоний
-        danger_active = "#dc2626"
-
-        self.root.configure(bg=bg_color)
-
-        self.style.configure(".", background=bg_color, foreground=text_color, font=("Segoe UI", 10))
-        self.style.configure("TNotebook", background=bg_color, borderwidth=0)
-        self.style.configure(
-            "TNotebook.Tab",
-            background="#f3f4f6",
-            foreground="#4b5563",
-            padding=[20, 8],
-            font=("Segoe UI", 10, "bold"),
-            borderwidth=0
-        )
-        self.style.map(
-            "TNotebook.Tab",
-            background=[("selected", primary_color)],
-            foreground=[("selected", "#ffffff")]
-        )
-
-        # Стилізація LabelFrame
-        self.style.configure("TLabelframe", background=card_color, borderwidth=1, relief="solid")
-        self.style.configure("TLabelframe.Label", background=card_color, foreground=primary_color, font=("Segoe UI", 11, "bold"))
-
-        self.style.configure("TFrame", background=bg_color)
-        self.style.configure("Card.TFrame", background=card_color)
-
-        self.style.configure("TLabel", background=card_color, foreground=text_color)
-        self.style.configure("Form.TLabel", background=card_color, font=("Segoe UI", 10, "bold"))
-        
-        # Акцентна кнопка (Додати товар)
-        self.style.configure(
-            "Accent.TButton",
-            background=primary_color,
-            foreground="#ffffff",
-            borderwidth=0,
-            focuscolor=primary_color,
-            padding=[12, 8],
-            font=("Segoe UI", 10, "bold")
-        )
-        self.style.map("Accent.TButton", background=[("active", primary_active)])
-
-        # Другорядна кнопка (Генерувати, Зберегти, Завантажити)
-        self.style.configure(
-            "Secondary.TButton",
-            background="#e5e7eb",
-            foreground="#374151",
-            borderwidth=0,
-            padding=[10, 6],
-            font=("Segoe UI", 9, "bold")
-        )
-        self.style.map("Secondary.TButton", background=[("active", "#d1d5db")])
-
-        # Кнопка небезпеки (Видалити)
-        self.style.configure(
-            "Danger.TButton",
-            background=danger_color,
-            foreground="#ffffff",
-            borderwidth=0,
-            padding=[10, 6],
-            font=("Segoe UI", 9, "bold")
-        )
-        self.style.map("Danger.TButton", background=[("active", danger_active)])
-
-        # Стилізація таблиці (Treeview)
-        self.style.configure(
-            "Treeview",
-            background=card_color,
-            fieldbackground=card_color,
-            foreground=text_color,
-            rowheight=28,
-            borderwidth=0
-        )
-        self.style.configure(
-            "Treeview.Heading",
-            background="#f3f4f6",
-            foreground="#374151",
-            font=("Segoe UI", 10, "bold"),
-            borderwidth=1,
-            relief="flat"
-        )
-        self.style.map("Treeview", background=[("selected", "#e0e7ff")], foreground=[("selected", primary_color)])
+        style.configure(".", font=("Segoe UI", 10))
+        style.configure("TNotebook", background="#f6f7fb", borderwidth=0)
+        style.configure("TNotebook.Tab", padding=(18, 8), font=("Segoe UI", 10, "bold"))
+        style.configure("TLabelframe", background="#ffffff", borderwidth=1)
+        style.configure("TLabelframe.Label", font=("Segoe UI", 10, "bold"))
+        style.configure("TFrame", background="#f6f7fb")
+        style.configure("Card.TFrame", background="#ffffff")
+        style.configure("TLabel", background="#ffffff")
+        style.configure("Form.TLabel", background="#ffffff", font=("Segoe UI", 10, "bold"))
+        style.configure("Treeview", rowheight=28, background="#ffffff", fieldbackground="#ffffff")
+        style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"))
 
     def _build_products_tab(self) -> None:
-        # Головний фрейм вкладки
-        self.products_tab = ttk.Frame(self.notebook, style="Card.TFrame")
-        self.notebook.add(self.products_tab, text="Товари")
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="Товари")
 
-        # Ліва панель: Форма додавання товару
-        self.left_panel = ttk.LabelFrame(self.products_tab, text=" Додати новий товар ", padding=15)
-        self.left_panel.pack(side="left", fill="both", expand=False, padx=(15, 8), pady=15)
+        form = ttk.LabelFrame(tab, text="Додати товар", padding=12)
+        form.pack(side="left", fill="y", padx=(10, 6), pady=10)
 
-        # Поля форми
-        ttk.Label(self.left_panel, text="Назва товару:", style="Form.TLabel").pack(anchor="w", pady=(0, 4))
         self.name_var = tk.StringVar()
-        self.name_entry = ttk.Entry(self.left_panel, textvariable=self.name_var, font=("Segoe UI", 10), width=28)
-        self.name_entry.pack(fill="x", pady=(0, 10))
-
-        ttk.Label(self.left_panel, text="Ціна (грн):", style="Form.TLabel").pack(anchor="w", pady=(0, 4))
         self.price_var = tk.StringVar()
-        self.price_entry = ttk.Entry(self.left_panel, textvariable=self.price_var, font=("Segoe UI", 10), width=28)
-        self.price_entry.pack(fill="x", pady=(0, 10))
-
-        ttk.Label(self.left_panel, text="Кількість (шт):", style="Form.TLabel").pack(anchor="w", pady=(0, 4))
         self.qty_var = tk.StringVar()
-        self.qty_entry = ttk.Entry(self.left_panel, textvariable=self.qty_var, font=("Segoe UI", 10), width=28)
-        self.qty_entry.pack(fill="x", pady=(0, 10))
-
-        ttk.Label(self.left_panel, text="Штрихкод (EAN-13):", style="Form.TLabel").pack(anchor="w", pady=(0, 4))
-        
-        # Рамка для поля штрихкоду та кнопки генерації поруч
-        barcode_frame = ttk.Frame(self.left_panel, style="Card.TFrame")
-        barcode_frame.pack(fill="x", pady=(0, 15))
-        
         self.barcode_var = tk.StringVar()
-        self.barcode_entry = ttk.Entry(barcode_frame, textvariable=self.barcode_var, font=("Segoe UI", 10), width=16)
-        self.barcode_entry.pack(side="left", fill="x", expand=True)
-        
-        btn_gen = ttk.Button(barcode_frame, text="Генерувати", command=self._generate_barcode, style="Secondary.TButton")
-        btn_gen.pack(side="right", padx=(8, 0))
 
-        # Кнопка додавання товару
-        btn_add = ttk.Button(self.left_panel, text="Додати товар", command=self._add_product, style="Accent.TButton")
-        btn_add.pack(fill="x", pady=(5, 10))
+        self._add_labeled_entry(form, "Назва товару", self.name_var)
+        self._add_labeled_entry(form, "Ціна", self.price_var)
+        self._add_labeled_entry(form, "Кількість", self.qty_var)
+        self._add_labeled_entry(form, "Штрихкод", self.barcode_var)
 
-        # Розділювач
-        separator = ttk.Separator(self.left_panel, orient="horizontal")
-        separator.pack(fill="x", pady=10)
+        ttk.Button(form, text="Generate barcode", command=self._generate_barcode).pack(fill="x", pady=(8, 4))
+        ttk.Button(form, text="Add product", command=self._add_product).pack(fill="x", pady=4)
+        ttk.Button(form, text="Save products", command=self._save_products).pack(fill="x", pady=4)
+        ttk.Button(form, text="Load products", command=self._load_products).pack(fill="x", pady=4)
 
-        # Збереження/Завантаження
-        btn_save = ttk.Button(self.left_panel, text="Зберегти товари", command=self._save_products, style="Secondary.TButton")
-        btn_save.pack(fill="x", pady=(0, 6))
+        table_frame = ttk.LabelFrame(tab, text="Список товарів", padding=12)
+        table_frame.pack(side="right", fill="both", expand=True, padx=(6, 10), pady=10)
 
-        btn_load = ttk.Button(self.left_panel, text="Завантажити товари", command=self._load_products, style="Secondary.TButton")
-        btn_load.pack(fill="x")
+        self.products_table = self._create_treeview(
+            table_frame,
+            ("barcode", "name", "price", "quantity"),
+            {
+                "barcode": "Штрихкод",
+                "name": "Назва",
+                "price": "Ціна",
+                "quantity": "Кількість",
+            },
+        )
 
-        # Права панель: Таблиця наявних товарів
-        self.right_panel = ttk.LabelFrame(self.products_tab, text=" Список товарів ", padding=15)
-        self.right_panel.pack(side="right", fill="both", expand=True, padx=(8, 15), pady=15)
+    def _build_cashier_tab(self) -> None:
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="Каса")
 
-        # Контейнер для таблиці та прокрутки
-        table_container = ttk.Frame(self.right_panel, style="Card.TFrame")
-        table_container.pack(fill="both", expand=True, pady=(0, 10))
+        controls = ttk.LabelFrame(tab, text="Продаж", padding=12)
+        controls.pack(fill="x", padx=10, pady=10)
 
-        columns = ("barcode", "name", "price", "quantity")
-        self.tree = ttk.Treeview(table_container, columns=columns, show="headings", height=10)
-        self.tree.pack(side="left", fill="both", expand=True)
+        self.cashier_barcode_var = tk.StringVar()
+        self.discount_var = tk.StringVar(value="0")
 
-        self.tree.heading("barcode", text="Штрихкод")
-        self.tree.heading("name", text="Назва")
-        self.tree.heading("price", text="Ціна (грн)")
-        self.tree.heading("quantity", text="Кількість")
+        ttk.Label(controls, text="Введіть або відскануйте штрихкод").grid(row=0, column=0, sticky="w", padx=4)
+        ttk.Entry(controls, textvariable=self.cashier_barcode_var, width=28).grid(row=1, column=0, padx=4, pady=4)
+        ttk.Button(controls, text="Add to receipt", command=self._add_to_receipt).grid(row=1, column=1, padx=4)
+        ttk.Button(controls, text="Remove item", command=self._remove_receipt_item).grid(row=1, column=2, padx=4)
+        ttk.Button(controls, text="Clear receipt", command=self._clear_receipt).grid(row=1, column=3, padx=4)
+        ttk.Button(controls, text="Finish sale", command=self._finish_sale).grid(row=1, column=4, padx=4)
 
-        self.tree.column("barcode", width=140, anchor="center")
-        self.tree.column("name", width=220, anchor="w")
-        self.tree.column("price", width=90, anchor="e")
-        self.tree.column("quantity", width=90, anchor="e")
+        ttk.Label(controls, text="Знижка %").grid(row=0, column=5, sticky="w", padx=(18, 4))
+        ttk.Entry(controls, textvariable=self.discount_var, width=10).grid(row=1, column=5, padx=(18, 4), pady=4)
+        ttk.Button(controls, text="Apply", command=self._refresh_cart_table).grid(row=1, column=6, padx=4)
 
-        scrollbar = ttk.Scrollbar(table_container, orient="vertical", command=self.tree.yview)
+        table_frame = ttk.LabelFrame(tab, text="Чек", padding=12)
+        table_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        self.cart_table = self._create_treeview(
+            table_frame,
+            ("barcode", "name", "price", "quantity", "sum"),
+            {
+                "barcode": "Штрихкод",
+                "name": "Назва",
+                "price": "Ціна",
+                "quantity": "Кількість",
+                "sum": "Сума",
+            },
+        )
+
+        self.total_label = ttk.Label(tab, text="Total: 0.00 грн", font=("Segoe UI", 14, "bold"))
+        self.total_label.pack(anchor="e", padx=20, pady=(0, 12))
+
+    def _build_history_tab(self) -> None:
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="Історія продажів")
+
+        table_frame = ttk.LabelFrame(tab, text="Історія продажів", padding=12)
+        table_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        self.history_table = self._create_treeview(
+            table_frame,
+            ("date", "total", "items_count", "discount_percent"),
+            {
+                "date": "Дата",
+                "total": "Сума продажу",
+                "items_count": "Кількість товарів",
+                "discount_percent": "Знижка %",
+            },
+        )
+        ttk.Button(tab, text="Reload history", command=self._load_sales_history).pack(anchor="e", padx=20, pady=(0, 12))
+
+    def _add_labeled_entry(self, parent, label: str, variable: tk.StringVar) -> None:
+        ttk.Label(parent, text=label, style="Form.TLabel").pack(anchor="w", pady=(6, 2))
+        ttk.Entry(parent, textvariable=variable, width=28).pack(fill="x")
+
+    def _create_treeview(self, parent, columns: tuple[str, ...], headings: dict[str, str]) -> ttk.Treeview:
+        container = ttk.Frame(parent)
+        container.pack(fill="both", expand=True)
+
+        tree = ttk.Treeview(container, columns=columns, show="headings")
+        tree.pack(side="left", fill="both", expand=True)
+
+        for column in columns:
+            tree.heading(column, text=headings[column])
+            tree.column(column, width=140, anchor="center")
+
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=tree.yview)
         scrollbar.pack(side="right", fill="y")
-        self.tree.configure(yscrollcommand=scrollbar.set)
-
-        # Панель дій для таблиці (видалення товару)
-        actions_container = ttk.Frame(self.right_panel, style="Card.TFrame")
-        actions_container.pack(fill="x")
-
-        btn_delete = ttk.Button(actions_container, text="Видалити вибраний товар", command=self._delete_product, style="Danger.TButton")
-        btn_delete.pack(side="left")
-
-        # Відображення наявних товарів
-        self._refresh_tree()
+        tree.configure(yscrollcommand=scrollbar.set)
+        return tree
 
     def _generate_barcode(self) -> None:
-        existing = [p["barcode"] for p in self.products]
-        try:
-            barcode = generate_barcode_number(existing)
-            self.barcode_var.set(barcode)
-        except Exception as e:
-            messagebox.showerror("Помилка", f"Не вдалося згенерувати штрихкод: {e}")
+        existing = [product.get("barcode", "") for product in self.products]
+        barcode = generate_barcode_number(existing)
+        self.barcode_var.set(barcode)
+        create_barcode_image(barcode)
 
     def _add_product(self) -> None:
-        name = self.name_var.get()
-        price = self.price_var.get()
-        qty = self.qty_var.get()
         barcode = self.barcode_var.get()
+        if not barcode:
+            self._generate_barcode()
+            barcode = self.barcode_var.get()
 
         try:
-            # Виклик бізнес-логіки додавання товару
-            self.products = prod_logic.add_product(self.products, name, price, qty, barcode)
-            
-            # Генерація зображення штрихкоду
+            self.products = product_logic.add_product(
+                self.products,
+                self.name_var.get(),
+                self.price_var.get(),
+                self.qty_var.get(),
+                barcode,
+            )
             create_barcode_image(barcode)
-            
-            # Автоматичне збереження
             save_products(self.products)
-            
-            # Оновлення таблиці
-            self._refresh_tree()
-            
-            # Очищення полів форми
-            self.name_var.set("")
-            self.price_var.set("")
-            self.qty_var.set("")
-            self.barcode_var.set("")
-            
-            messagebox.showinfo("Успіх", f"Товар '{name}' успішно додано!")
-        except ValueError as e:
-            messagebox.showerror("Помилка валідації", str(e))
-        except Exception as e:
-            messagebox.showerror("Помилка", f"Невідома помилка при додаванні: {e}")
+            self._clear_product_form()
+            self._refresh_products_table()
+            messagebox.showinfo("Готово", "Товар додано")
+        except ValueError as exc:
+            messagebox.showerror("Помилка", str(exc))
 
-    def _delete_product(self) -> None:
-        selected_item = self.tree.selection()
-        if not selected_item:
-            messagebox.showwarning("Попередження", "Будь ласка, виберіть товар для видалення зі списку.")
+    def _delete_selected_product(self) -> None:
+        selected = self.products_table.selection()
+        if not selected:
             return
-
-        item_values = self.tree.item(selected_item, "values")
-        barcode = item_values[0]
-        name = item_values[1]
-
-        confirm = messagebox.askyesno(
-            "Підтвердження видалення",
-            f"Ви дійсно хочете видалити товар '{name}' (Штрихкод: {barcode})?"
-        )
-        if confirm:
-            # Видаляємо товар зі списку
-            self.products = [p for p in self.products if p["barcode"] != barcode]
-            
-            # Зберігаємо оновлений список
-            save_products(self.products)
-            
-            # Оновлюємо таблицю
-            self._refresh_tree()
-            messagebox.showinfo("Успіх", f"Товар '{name}' успішно видалено.")
+        barcode = self.products_table.item(selected[0], "values")[0]
+        self.products = [product for product in self.products if product["barcode"] != barcode]
+        save_products(self.products)
+        self._refresh_products_table()
 
     def _save_products(self) -> None:
-        try:
-            save_products(self.products)
-            messagebox.showinfo("Збереження", "Товари успішно збережено у файл!")
-        except Exception as e:
-            messagebox.showerror("Помилка", f"Не вдалося зберегти товари: {e}")
+        save_products(self.products)
+        messagebox.showinfo("Готово", "Товари збережено")
 
     def _load_products(self) -> None:
-        try:
-            self.products = load_products()
-            self._refresh_tree()
-            messagebox.showinfo("Завантаження", "Товари успішно завантажено з файлу!")
-        except Exception as e:
-            messagebox.showerror("Помилка", f"Не вдалося завантажити товари: {e}")
+        self.products = load_products()
+        self._refresh_products_table()
+        messagebox.showinfo("Готово", "Товари завантажено")
 
-    def _refresh_tree(self) -> None:
-        # Очищуємо таблицю
-        for row in self.tree.get_children():
-            self.tree.delete(row)
-        
-        # Заповнюємо даними
-        for p in self.products:
-            self.tree.insert(
+    def _add_to_receipt(self) -> None:
+        try:
+            add_to_cart(self.products, self.cart, self.cashier_barcode_var.get())
+            self.cashier_barcode_var.set("")
+            self._refresh_cart_table()
+        except ValueError as exc:
+            messagebox.showerror("Помилка", str(exc))
+
+    def _remove_receipt_item(self) -> None:
+        barcode = self.cashier_barcode_var.get().strip()
+        selected = self.cart_table.selection()
+        if selected:
+            barcode = self.cart_table.item(selected[0], "values")[0]
+        if not barcode:
+            messagebox.showwarning("Увага", "Виберіть товар у чеку або введіть штрихкод")
+            return
+        remove_from_cart(self.cart, barcode)
+        self._refresh_cart_table()
+
+    def _clear_receipt(self) -> None:
+        self.cart.clear()
+        self._refresh_cart_table()
+
+    def _finish_sale(self) -> None:
+        try:
+            sale = finish_sale(self.products, self.cart, self.sales_history, self.discount_var.get())
+            save_products(self.products)
+            save_sales(self.sales_history)
+            self._refresh_products_table()
+            self._refresh_cart_table()
+            self._refresh_history_table()
+            messagebox.showinfo("Продаж завершено", f"Сума: {sale['total']:.2f} грн")
+        except ValueError as exc:
+            messagebox.showerror("Помилка", str(exc))
+
+    def _load_sales_history(self) -> None:
+        self.sales_history = load_sales()
+        self._refresh_history_table()
+
+    def _clear_product_form(self) -> None:
+        self.name_var.set("")
+        self.price_var.set("")
+        self.qty_var.set("")
+        self.barcode_var.set("")
+
+    def _refresh_products_table(self) -> None:
+        self.products_table.delete(*self.products_table.get_children())
+        for product in self.products:
+            self.products_table.insert(
                 "",
                 "end",
-                values=(p["barcode"], p["name"], f"{float(p['price']):.2f}", p["quantity"])
+                values=(
+                    product.get("barcode", ""),
+                    product.get("name", ""),
+                    f"{float(product.get('price', 0)):.2f}",
+                    product.get("quantity", 0),
+                ),
             )
 
-    def _add_placeholder_tab(self, title: str, text: str) -> None:
-        tab = ttk.Frame(self.notebook, style="Card.TFrame")
-        self.notebook.add(tab, text=title)
-        ttk.Label(tab, text=text, font=("Arial", 12), justify="center").pack(expand=True)
+    def _refresh_cart_table(self) -> None:
+        self.cart_table.delete(*self.cart_table.get_children())
+        for item in self.cart:
+            self.cart_table.insert(
+                "",
+                "end",
+                values=(
+                    item["barcode"],
+                    item["name"],
+                    f"{item['price']:.2f}",
+                    item["quantity"],
+                    f"{item['sum']:.2f}",
+                ),
+            )
+
+        try:
+            total = calculate_total(self.cart, self.discount_var.get())
+        except ValueError:
+            total = sum(float(item.get("sum", 0)) for item in self.cart)
+        self.total_label.config(text=f"Total: {total:.2f} грн")
+
+    def _refresh_history_table(self) -> None:
+        self.history_table.delete(*self.history_table.get_children())
+        for sale in self.sales_history:
+            self.history_table.insert(
+                "",
+                "end",
+                values=(
+                    sale.get("date", ""),
+                    f"{float(sale.get('total', 0)):.2f}",
+                    sale.get("items_count", 0),
+                    sale.get("discount_percent", 0),
+                ),
+            )
 
 
 if __name__ == "__main__":
     root = tk.Tk()
     MiniPOSApp(root)
     root.mainloop()
-

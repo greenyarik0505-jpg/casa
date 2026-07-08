@@ -1,225 +1,81 @@
-# Mini POS System (CASA)
+# CASA — Mini POS System
 
-POS (Point of Sale) — це касова програма для роботи з товарами та продажами.
+Легкий навчальний POS (Point of Sale) застосунок для роботи з товарами, чеками та історією продажів.
 
-## Можливості програми
+## ✨ Основні можливості
 
-Програма вміє:
+- Додавання товарів (назва, ціна, кількість, штрихкод)
+- Генерація унікальних EAN-13 штрихкодів та зображень
+- Пошук товару за штрихкодом
+- Формування чека (додавання/видалення позицій, очищення, завершення продажу)
+- Підрахунок суми та застосування знижки
+- Збереження/завантаження товарів і продажів у JSON
 
-- додавати товари;
-- генерувати штрихкод для товару;
-- шукати товар по штрихкоду;
-- додавати товар у чек;
-- рахувати суму;
-- робити знижку;
-- завершувати продаж;
-- зберігати товари у файл;
-- зберігати історію продажів.
+## 🚀 Quick Start
 
----
-
-## Фінальна ідея програми
-
-### 1) Вкладка **“Товари”**
-
-Тут адміністратор додає товар:
-
-- Назва товару
-- Ціна
-- Кількість
-- Штрихкод
-
-Кнопки:
-
-- `Generate barcode`
-- `Add product`
-- `Save products`
-- `Load products`
-
-Після натискання **Generate barcode** програма створює унікальний код, наприклад:
-
-`4820001234567`
-
-та генерує картинку штрихкоду.
-
----
-
-### 2) Вкладка **“Каса”**
-
-Тут касир продає товар:
-
-- Введіть або відскануйте штрихкод
-
-Кнопки:
-
-- `Add to receipt`
-- `Remove item`
-- `Clear receipt`
-- `Finish sale`
-
-Таблиця чеку:
-
-**Назва | Ціна | Кількість | Сума**
-
-Знизу:
-
-**Total: 1450 грн**
-
----
-
-### 3) Вкладка **“Історія продажів”**
-
-Тут відображається:
-
-- Дата
-- Сума продажу
-- Кількість товарів
-
----
-
-## Структура проєкту
-
-```text
-mini-pos-system/
-│
-├── main.py
-├── products.py
-├── barcode_tools.py
-├── storage.py
-├── sales.py
-├── README.md
-│
-├── data/
-│   ├── products.json
-│   └── sales.json
-│
-└── barcodes/
-    └── 4820001234567.png
-```
-
----
-
-## Розподіл задач у команді
-
-### Кирил — інтерфейс каси  
-**Гілка:** `feature/ui`
-
-**Задачі:**
-
-- головне вікно;
-- вкладки через `ttk.Notebook`;
-- вкладка “Товари”;
-- вкладка “Каса”;
-- вкладка “Історія”;
-- таблиці через `ttk.Treeview`;
-- кнопки;
-- поля вводу.
-
-**Коміти:**
-
-```bash
-git commit -m "Create main POS window"
-git commit -m "Add products tab"
-git commit -m "Add cashier tab"
-git commit -m "Add sales history tab"
-git commit -m "Add tables and buttons"
-```
-
----
-
-### Діма — логіка товарів і продажів  
-**Гілка:** `feature/pos-logic`
-
-**Задачі:**
-
-- додавання товару;
-- перевірка назви, ціни, кількості;
-- пошук товару по штрихкоду;
-- додавання товару в чек;
-- підрахунок загальної суми;
-- зменшення залишку товару після продажу;
-- завершення продажу.
-
-**Функції:**
-
-- `add_product()`
-- `find_product_by_barcode()`
-- `add_to_cart()`
-- `remove_from_cart()`
-- `calculate_total()`
-- `finish_sale()`
-
-**Коміти:**
-
-```bash
-git commit -m "Add product validation"
-git commit -m "Add product creation logic"
-git commit -m "Add barcode product search"
-git commit -m "Add cart logic"
-git commit -m "Add sale finishing logic"
-```
-
----
-
-### Ярік — штрихкоди, файли, історія  
-**Гілка:** `feature/barcodes-storage`
-
-**Задачі:**
-
-- генерація унікального штрихкоду;
-- створення картинки штрихкоду;
-- збереження товарів у `products.json`;
-- збереження продажів у `sales.json`;
-- створення папок `data/` і `barcodes/`;
-- оформлення `README`.
-
-**Функції:**
-
-- `generate_barcode_number()`
-- `create_barcode_image()`
-- `save_products()`
-- `load_products()`
-- `save_sales()`
-- `load_sales()`
-
-**Коміти:**
-
-```bash
-git commit -m "Add barcode number generation"
-git commit -m "Add barcode image generation"
-git commit -m "Add JSON product storage"
-git commit -m "Add sales history storage"
-git commit -m "Add project README"
-```
-
----
-
-## Встановлення залежностей
-
-Для `Tkinter` нічого додатково встановлювати не потрібно (у більшості Python-інсталяцій він уже є).
-
-Для генерації штрихкодів встановіть:
+### 1) Встановіть залежності
 
 ```bash
 pip install python-barcode pillow
 ```
 
----
+> `tkinter` зазвичай вже входить до стандартної інсталяції Python.
 
-## Як генерується штрихкод
-
-Найпростіший варіант — **EAN-13**.
-
-- EAN-13 має 13 цифр, наприклад: `4821234567890`
-- Остання цифра — контрольна (checksum)
-- Бібліотека може автоматично порахувати її, якщо передати перші 12 цифр
-
----
-
-## Запуск проєкту
+### 2) Запустіть застосунок
 
 ```bash
 python main.py
 ```
 
-> Переконайтеся, що папки `data/` та `barcodes/` існують, або створюйте їх автоматично під час запуску.
+### 3) Переконайтесь, що існують папки даних
+
+- `data/` — для `products.json` та `sales.json`
+- `barcodes/` — для PNG-файлів штрихкодів
+
+## 🧩 Структура проєкту
+
+```text
+mini-pos-system/
+├── main.py
+├── products.py
+├── barcode_tools.py
+├── storage.py
+├── sales.py
+├── data/
+│   ├── products.json
+│   └── sales.json
+├── barcodes/
+│   └── 4820001234567.png
+└── README.md
+```
+
+## 🖥️ Основні екрани
+
+### Товари
+
+- Додавання нових товарів
+- Генерація штрихкоду (`Generate barcode`)
+- Збереження/завантаження (`Save products` / `Load products`)
+
+### Каса
+
+- Сканування або введення штрихкоду
+- Формування чека (`Add to receipt`, `Remove item`, `Clear receipt`)
+- Завершення продажу (`Finish sale`)
+
+### Історія продажів
+
+- Перегляд дати, суми продажу та кількості товарів по операції
+
+## 📊 GitHub Graphs
+
+![GitHub Stats](https://github-readme-stats.vercel.app/api?username=greenyarik0505-jpg&show_icons=true&theme=transparent)
+![Top Languages](https://github-readme-stats.vercel.app/api/top-langs/?username=greenyarik0505-jpg&layout=compact&theme=transparent)
+
+[![Contribution Graph](https://github-readme-activity-graph.vercel.app/graph?username=greenyarik0505-jpg&theme=github-compact)](https://github.com/greenyarik0505-jpg)
+
+## 🗺️ Roadmap
+
+- [ ] Додати редагування товарів прямо з таблиці
+- [ ] Додати експорт чеків у CSV/PDF
+- [ ] Додати базову аналітику продажів по датах
